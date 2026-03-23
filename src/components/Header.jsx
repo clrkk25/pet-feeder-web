@@ -90,6 +90,8 @@ function Header({ status, connected, device, onLogout }) {
           font-size: 14px;
           cursor: pointer;
           transition: opacity 0.2s;
+          min-width: 60px;
+          min-height: 36px;
         }
 
         .logout-btn:hover {
@@ -98,12 +100,14 @@ function Header({ status, connected, device, onLogout }) {
 
         .device-info {
           background: #f8f9fa;
-          padding: 10px;
+          padding: 12px;
           border-radius: 8px;
           margin: 10px 0;
           display: flex;
           justify-content: space-between;
-          font-size: 13px;
+          font-size: 14px;
+          flex-wrap: wrap;
+          gap: 5px;
         }
 
         .device-name {
@@ -113,6 +117,28 @@ function Header({ status, connected, device, onLogout }) {
 
         .device-mac {
           color: #888;
+        }
+
+        @media (max-width: 480px) {
+          .header-top h1 {
+            font-size: 18px;
+          }
+          
+          .logout-btn {
+            padding: 6px 12px;
+            font-size: 13px;
+            min-height: 40px;
+          }
+          
+          .device-info {
+            padding: 10px;
+            font-size: 13px;
+          }
+          
+          .device-name {
+            width: 100%;
+            margin-bottom: 4px;
+          }
         }
       `}</style>
     </div>

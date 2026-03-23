@@ -54,11 +54,14 @@ function CameraViewer({ onCapture, imageUrl, loading }) {
           overflow: hidden;
           margin-bottom: 15px;
           background: #f5f5f5;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .camera-image {
           width: 100%;
           display: block;
           border-radius: 12px;
+          object-fit: contain;
+          max-height: 400px;
         }
         .image-time {
           position: absolute;
@@ -101,6 +104,8 @@ function CameraViewer({ onCapture, imageUrl, loading }) {
           justify-content: center;
           gap: 8px;
           transition: transform 0.1s, opacity 0.2s;
+          min-height: 48px;
+          touch-action: manipulation;
         }
         .capture-btn:hover:not(:disabled) {
           opacity: 0.9;
@@ -122,6 +127,24 @@ function CameraViewer({ onCapture, imageUrl, loading }) {
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @media (max-width: 480px) {
+          .camera-image {
+            max-height: 300px;
+          }
+          
+          .no-image {
+            padding: 30px 15px;
+          }
+          
+          .camera-icon {
+            font-size: 40px;
+          }
+          
+          .capture-btn {
+            min-height: 52px;
+            font-size: 17px;
+          }
         }
       `}</style>
     </div>

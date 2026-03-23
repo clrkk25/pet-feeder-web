@@ -9,6 +9,7 @@ import ScheduleList from './components/ScheduleList'
 import FeedLog from './components/FeedLog'
 import FeedHistory from './components/FeedHistory'
 import CameraViewer from './components/CameraViewer'
+import BottomNav from './components/BottomNav'
 
 const MQTT_CONFIG = {
   url: 'wss://d55a4f21.ala.asia-southeast1.emqxsl.com:8084/mqtt',
@@ -32,6 +33,7 @@ const TOPICS = {
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [activeTab, setActiveTab] = useState('home')
   const [connected, setConnected] = useState(false)
   const [currentDevice, setCurrentDevice] = useState(null)
   const [devices, setDevices] = useState([])
@@ -236,47 +238,55 @@ function App() {
     return <AuthScreen onAuth={() => setIsAuthenticated(true)} />
   }
 
-  if (showHistory) {
-    return <FeedHistory logs={logs} onBack={() => setShowHistory(false)} />
+  if (showHistory || activeTab === 'history') {
+    return (
+      <>
+        <FeedHistory logs={logs} onBack={() => { setShowHistory(false); setActiveTab('home'); }} />
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      </>
+    )
   }
 
   return (
-    <div className="container">
-      {showLowFoodAlert && (
-        <div className="alert-overlay">
-          <div className="alert-box">
-            <div className="alert-icon">⚠️</div>
-            <div className="alert-title">余粮不足</div>
-            <div className="alert-message">请及时补充宠物粮食</div>
-            <button className="alert-btn" onClick={() => setShowLowFoodAlert(false)}>
-              我知道了
-            </button>
+    <>
+      <div className="container">
+        {showLowFoodAlert && (
+          <div className="alert-overlay">
+            <div className="alert-box">
+              <div className="alert-icon">⚠️</div>
+              <div className="alert-title">余粮不足</div>
+              <div className="alert-message">请及时补充宠物粮食</div>
+              <button className="alert-btn" onClick={() => setShowLowFoodAlert(false)}>
+                我知道了
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <Header 
-        status={status} 
-        connected={connected} 
-        device={currentDevice}
-        devices={devices}
-        onDeviceChange={setCurrentDevice}
-        onLogout={handleLogout}
-      />
-      <WeightCard weight={status.weight} scaleReady={status.scaleReady} onTare={tare} />
-      <FeedControl onFeed={feed} feeding={status.feeding} />
-      <ScheduleList 
-        schedules={schedules} 
-        onToggle={toggleSchedule} 
-        onDelete={deleteSchedule}
-        onAdd={addSchedule}
-      />
-      <CameraViewer 
-        imageUrl={cameraImage}
-        onCapture={handleCapture}
-        loading={cameraLoading}
-      />
-      <FeedLog logs={logs} onMore={() => setShowHistory(true)} />
+        <Header 
+          status={status} 
+          connected={connected} 
+          device={currentDevice}
+          devices={devices}
+          onDeviceChange={setCurrentDevice}
+          onLogout={handleLogout}
+        />
+        <WeightCard weight={status.weight} scaleReady={status.scaleReady} onTare={tare} />
+        <FeedControl onFeed={feed} feeding={status.feeding} />
+        <ScheduleList 
+          schedules={schedules} 
+          onToggle={toggleSchedule} 
+          onDelete={deleteSchedule}
+          onAdd={addSchedule}
+        />
+        <CameraViewer 
+          imageUrl={cameraImage}
+          onCapture={handleCapture}
+          loading={cameraLoading}
+        />
+        <FeedLog logs={logs} onMore={() => setShowHistory(true)} />
+      </div>
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
 
       <style>{`
         .alert-overlay {
@@ -327,7 +337,7 @@ function App() {
           background: #388E3C;
         }
       `}</style>
-    </div>
+    </>
   )
 }
 
