@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/你的仓库名/',
+  base: '/pet-feeder-web/',
   server: {
     port: 3000
   },
