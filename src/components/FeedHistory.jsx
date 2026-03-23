@@ -127,22 +127,23 @@ function FeedHistory({ logs, onBack }) {
           </div>
 
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={180}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="date" 
-                  fontSize={12}
+                  fontSize={11}
                   interval={timeRangeConfig[timeRange].interval}
+                  tick={{ fontSize: 11 }}
                 />
-                <YAxis fontSize={12} />
+                <YAxis fontSize={11} tick={{ fontSize: 11 }} width={35} />
                 <Tooltip 
                   formatter={(value, name) => [
                     name === 'grams' ? `${value.toFixed(1)}g` : `${value}次`,
                     name === 'grams' ? '总重量' : '喂食次数'
                   ]}
                 />
-                <Line type="monotone" dataKey="grams" stroke="#4CAF50" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="grams" stroke="#4CAF50" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -249,32 +250,36 @@ function FeedHistory({ logs, onBack }) {
         .chart-section, .table-section {
           background: white;
           border-radius: 12px;
-          padding: 20px;
+          padding: 15px;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .chart-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 15px;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+          gap: 8px;
         }
         .chart-header h3 {
           margin: 0;
           color: #333;
-          font-size: 16px;
+          font-size: 15px;
         }
         .time-range-tabs {
           display: flex;
-          gap: 5px;
+          gap: 4px;
+          flex-shrink: 0;
         }
         .tab-btn {
           background: #f5f5f5;
           border: none;
-          padding: 6px 12px;
+          padding: 5px 10px;
           border-radius: 6px;
-          font-size: 13px;
+          font-size: 12px;
           cursor: pointer;
           color: #666;
+          white-space: nowrap;
         }
         .tab-btn.active {
           background: #4CAF50;
@@ -291,21 +296,21 @@ function FeedHistory({ logs, onBack }) {
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 15px;
-          margin-top: 20px;
-          padding-top: 20px;
+          gap: 10px;
+          margin-top: 15px;
+          padding-top: 15px;
           border-top: 1px solid #eee;
         }
         .stat-item {
           text-align: center;
         }
         .stat-value {
-          font-size: 24px;
+          font-size: 20px;
           font-weight: bold;
           color: #4CAF50;
         }
         .stat-label {
-          font-size: 12px;
+          font-size: 11px;
           color: #888;
           margin-top: 4px;
         }
@@ -374,6 +379,116 @@ function FeedHistory({ logs, onBack }) {
           padding: 15px;
           color: #888;
           font-size: 14px;
+        }
+        
+        @media (max-width: 480px) {
+          .history-page {
+            padding: 12px;
+            background: #f0f2f5;
+          }
+          
+          .history-header {
+            margin-bottom: 16px;
+            padding: 0 4px;
+          }
+          
+          .history-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a1a1a;
+          }
+          
+          .back-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+          }
+          
+          .chart-section, .table-section {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+          }
+          
+          .chart-header h3 {
+            font-size: 17px;
+            font-weight: 700;
+          }
+          
+          .time-range-tabs {
+            gap: 8px;
+          }
+          
+          .tab-btn {
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 10px;
+          }
+          
+          .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+            padding-top: 16px;
+          }
+          
+          .stat-item {
+            background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+            padding: 14px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+          }
+          
+          .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+          }
+          
+          .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 6px;
+            font-weight: 500;
+          }
+          
+          .type-stats {
+            gap: 12px;
+            margin-top: 16px;
+            padding-top: 16px;
+          }
+          
+          .type-stat {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 10px;
+          }
+          
+          .table-wrapper {
+            margin: 0 -16px -16px;
+          }
+          
+          .record-table th {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 12px 8px;
+          }
+          
+          .record-table td {
+            font-size: 13px;
+            padding: 12px 8px;
+          }
+          
+          .type-badge {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 8px;
+          }
         }
       `}</style>
     </div>

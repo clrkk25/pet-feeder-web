@@ -46,81 +46,91 @@ function CameraViewer({ onCapture, imageUrl, loading }) {
           margin-top: 15px;
         }
         .camera-container {
-          padding: 15px 0;
+          padding: 0 4px;
         }
         .image-wrapper {
           position: relative;
-          border-radius: 12px;
+          border-radius: 16px;
           overflow: hidden;
-          margin-bottom: 15px;
-          background: #f5f5f5;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+          margin-bottom: 16px;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+          border: 1px solid rgba(102, 126, 234, 0.1);
         }
         .camera-image {
           width: 100%;
           display: block;
-          border-radius: 12px;
+          border-radius: 16px;
           object-fit: contain;
           max-height: 400px;
+          background: #fff;
         }
         .image-time {
           position: absolute;
           bottom: 10px;
           right: 10px;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(10px);
           color: white;
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-size: 12px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
         .no-image {
-          background: #f5f5f5;
-          border-radius: 12px;
-          padding: 40px 20px;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-radius: 16px;
+          padding: 48px 24px;
           text-align: center;
-          margin-bottom: 15px;
+          margin-bottom: 16px;
+          border: 1px solid rgba(102, 126, 234, 0.1);
         }
         .camera-icon {
-          font-size: 48px;
-          margin-bottom: 10px;
+          font-size: 56px;
+          margin-bottom: 16px;
+          opacity: 0.6;
         }
         .no-image p {
-          color: #888;
+          color: #718096;
           margin: 0;
-          font-size: 14px;
+          font-size: 15px;
+          font-weight: 500;
         }
         .capture-btn {
           width: 100%;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border: none;
-          padding: 14px;
-          border-radius: 10px;
+          padding: 16px 24px;
+          border-radius: 12px;
           font-size: 16px;
-          font-weight: bold;
+          font-weight: 600;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          transition: transform 0.1s, opacity 0.2s;
-          min-height: 48px;
-          touch-action: manipulation;
+          transition: all 0.2s;
+          min-height: 52px;
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         .capture-btn:hover:not(:disabled) {
-          opacity: 0.9;
+          box-shadow: 0 6px 16px rgba(102, 126, 234, 0.35);
         }
         .capture-btn:active:not(:disabled) {
-          transform: scale(0.98);
+          transform: scale(0.96);
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         .capture-btn:disabled {
-          opacity: 0.6;
+          opacity: 0.5;
           cursor: not-allowed;
+          transform: none;
         }
         .spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid rgba(255,255,255,0.3);
+          width: 18px;
+          height: 18px;
+          border: 3px solid rgba(255,255,255,0.3);
           border-top-color: white;
           border-radius: 50%;
           animation: spin 0.6s linear infinite;
@@ -130,20 +140,24 @@ function CameraViewer({ onCapture, imageUrl, loading }) {
         }
         @media (max-width: 480px) {
           .camera-image {
-            max-height: 300px;
+            max-height: 280px;
           }
           
           .no-image {
-            padding: 30px 15px;
+            padding: 40px 20px;
           }
           
           .camera-icon {
-            font-size: 40px;
+            font-size: 48px;
           }
           
           .capture-btn {
             min-height: 52px;
-            font-size: 17px;
+            font-size: 16px;
+          }
+          
+          .no-image p {
+            font-size: 14px;
           }
         }
       `}</style>

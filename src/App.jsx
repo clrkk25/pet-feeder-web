@@ -234,15 +234,35 @@ function App() {
     }
   }
 
+  const scrollToCamera = useCallback(() => {
+    const cameraElement = document.querySelector('.camera-section')
+    if (cameraElement) {
+      cameraElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [])
+
+  const handleTabChange = (tab) => {
+    if (tab === 'home') {
+      setShowHistory(false)
+      scrollToCamera && scrollToCamera()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else if (tab === 'history') {
+      setShowHistory(true)
+    } else if (tab === 'camera') {
+      scrollToCamera()
+    }
+    setActiveTab(tab)
+  }
+
   if (!isAuthenticated) {
     return <AuthScreen onAuth={() => setIsAuthenticated(true)} />
   }
 
-  if (showHistory || activeTab === 'history') {
+  if (showHistory) {
     return (
       <>
         <FeedHistory logs={logs} onBack={() => { setShowHistory(false); setActiveTab('home'); }} />
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       </>
     )
   }
@@ -279,16 +299,21 @@ function App() {
           onDelete={deleteSchedule}
           onAdd={addSchedule}
         />
-        <CameraViewer 
-          imageUrl={cameraImage}
-          onCapture={handleCapture}
-          loading={cameraLoading}
-        />
+        <div className="camera-section">
+          <CameraViewer 
+            imageUrl={cameraImage}
+            onCapture={handleCapture}
+            loading={cameraLoading}
+          />
+        </div>
         <FeedLog logs={logs} onMore={() => setShowHistory(true)} />
       </div>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
       <style>{`
+        .camera-section {
+          scroll-margin-top: 20px;
+        }
         .alert-overlay {
           position: fixed;
           top: 0;

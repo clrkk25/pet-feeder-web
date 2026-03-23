@@ -46,51 +46,71 @@ function FeedLog({ logs, onMore }) {
       </div>
       <style jsx>{`
         .empty-text {
-          color: #888;
+          color: #a0aec0;
           text-align: center;
-          padding: 20px;
+          padding: 24px;
+          font-size: 14px;
         }
         .record-item {
           display: flex;
           justify-content: space-between;
-          padding: 12px 0;
-          border-bottom: 1px solid #eee;
+          align-items: center;
+          padding: 14px 0;
+          border-bottom: 1px solid #e2e8f0;
+          transition: background 0.2s;
         }
         .record-item:last-child {
           border-bottom: none;
         }
+        .record-item:hover {
+          background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+          margin: 0 -16px;
+          padding-left: 16px;
+          padding-right: 16px;
+        }
         .record-time {
-          color: #888;
+          color: #718096;
           font-size: 14px;
+          font-weight: 500;
         }
         .record-info {
-          font-size: 14px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #2d3748;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .record-type {
           display: inline-block;
-          padding: 2px 8px;
-          border-radius: 4px;
+          padding: 4px 10px;
+          border-radius: 8px;
           font-size: 12px;
-          margin-left: 5px;
+          font-weight: 600;
+          margin-left: 8px;
         }
         .record-type.auto {
-          background: #e3f2fd;
-          color: #1976d2;
+          background: linear-gradient(135deg, #bee3f8 0%, #90cdf4 100%);
+          color: #2c5282;
         }
         .record-type.remote {
-          background: #e8f5e9;
-          color: #388e3c;
+          background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+          color: #22543d;
         }
         .more-btn {
-          background: none;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
           border: none;
-          color: #4CAF50;
+          padding: 8px 16px;
+          border-radius: 10px;
           font-size: 14px;
+          font-weight: 600;
           cursor: pointer;
-          padding: 0;
+          transition: all 0.2s;
+          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
         }
-        .more-btn:hover {
-          color: #388E3C;
+        .more-btn:active {
+          transform: scale(0.95);
         }
       `}</style>
     </div>
