@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-function Header({ status, connected, device, onLogout }) {
+function Header({ status, connected, device }) {
   const [localTime, setLocalTime] = useState(() => {
     return new Date().toLocaleTimeString('zh-CN', { hour12: false })
   })
@@ -36,14 +36,10 @@ function Header({ status, connected, device, onLogout }) {
     <div className="card header">
       <div className="header-top">
         <h1>智能宠物喂食器</h1>
-        <button className="logout-btn" onClick={onLogout}>退出</button>
       </div>
       <div className="time">{localTime}</div>
       {device && (
-        <div className="device-info">
-          <span className="device-name">{device.device_name || '未命名设备'}</span>
-          <span className="device-mac">{device.device_mac}</span>
-        </div>
+        <div className="device-mac">{device.device_mac}</div>
       )}
       <div className="connection-status">
         <span className={`connection-dot ${connected ? 'connected' : ''}`}></span>
@@ -69,9 +65,7 @@ function Header({ status, connected, device, onLogout }) {
 
       <style jsx>{`
         .header-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+          text-align: center;
           margin-bottom: 12px;
         }
 
@@ -79,7 +73,16 @@ function Header({ status, connected, device, onLogout }) {
           color: #1a1a1a;
           font-size: 24px;
           font-weight: 700;
-          margin: 0;
+          margin: 0 auto;
+          text-align: center;
+        }
+
+        .device-mac {
+          color: #718096;
+          font-size: 14px;
+          font-family: monospace;
+          text-align: center;
+          margin: 0 auto 12px auto;
         }
 
         .logout-btn {

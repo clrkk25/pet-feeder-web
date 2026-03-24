@@ -105,7 +105,6 @@ function FeedHistory({ logs, onBack }) {
   return (
     <div className="history-page">
       <div className="history-header">
-        <button className="back-btn" onClick={onBack}>← 返回</button>
         <h2>喂食历史</h2>
       </div>
 
@@ -215,6 +214,7 @@ function FeedHistory({ logs, onBack }) {
           max-width: 1200px;
           margin: 0 auto;
           padding: 20px;
+          padding-bottom: 100px;
         }
         .history-header {
           display: flex;

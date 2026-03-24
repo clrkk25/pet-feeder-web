@@ -16,11 +16,11 @@ function BottomNav({ activeTab, onTabChange }) {
         <span className="nav-label">记录</span>
       </button>
       <button 
-        className={`nav-item ${activeTab === 'camera' ? 'active' : ''}`}
-        onClick={() => onTabChange('camera')}
+        className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+        onClick={() => onTabChange('profile')}
       >
-        <span className="nav-icon">📷</span>
-        <span className="nav-label">摄像头</span>
+        <span className="nav-icon">👤</span>
+        <span className="nav-label">我</span>
       </button>
 
       <style jsx>{`
@@ -71,6 +71,7 @@ function BottomNav({ activeTab, onTabChange }) {
 
         .nav-item.active {
           color: #667eea;
+          transform: translateY(-4px);
         }
 
         .nav-item.active::before {
@@ -100,12 +101,6 @@ function BottomNav({ activeTab, onTabChange }) {
         .nav-item.active .nav-label {
           color: #667eea;
           font-weight: 700;
-        }
-
-        @media (min-width: 481px) {
-          .bottom-nav {
-            display: none;
-          }
         }
       `}</style>
     </nav>

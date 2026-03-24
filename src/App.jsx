@@ -10,6 +10,7 @@ import FeedLog from './components/FeedLog'
 import FeedHistory from './components/FeedHistory'
 import CameraViewer from './components/CameraViewer'
 import BottomNav from './components/BottomNav'
+import Profile from './components/Profile'
 
 const MQTT_CONFIG = {
   url: 'wss://d55a4f21.ala.asia-southeast1.emqxsl.com:8084/mqtt',
@@ -32,6 +33,7 @@ const TOPICS = {
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [activeTab, setActiveTab] = useState('home')
   const [connected, setConnected] = useState(false)
@@ -56,6 +58,7 @@ function App() {
   useEffect(() => {
     const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
       setIsAuthenticated(!!session)
+      setCurrentUser(session?.user || null)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -234,22 +237,14 @@ function App() {
     }
   }
 
-  const scrollToCamera = useCallback(() => {
-    const cameraElement = document.querySelector('.camera-section')
-    if (cameraElement) {
-      cameraElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [])
-
   const handleTabChange = (tab) => {
     if (tab === 'home') {
       setShowHistory(false)
-      scrollToCamera && scrollToCamera()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } else if (tab === 'history') {
       setShowHistory(true)
-    } else if (tab === 'camera') {
-      scrollToCamera()
+    } else if (tab === 'profile') {
+      setShowHistory(false)
     }
     setActiveTab(tab)
   }
@@ -258,7 +253,21 @@ function App() {
     return <AuthScreen onAuth={() => setIsAuthenticated(true)} />
   }
 
-  if (showHistory) {
+  if (activeTab === 'profile') {
+    return (
+      <>
+        <Profile 
+          user={currentUser} 
+          device={currentDevice}
+          logs={logs}
+          onLogout={handleLogout}
+        />
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      </>
+    )
+  }
+
+  if (showHistory && activeTab === 'history') {
     return (
       <>
         <FeedHistory logs={logs} onBack={() => { setShowHistory(false); setActiveTab('home'); }} />
@@ -289,7 +298,6 @@ function App() {
           device={currentDevice}
           devices={devices}
           onDeviceChange={setCurrentDevice}
-          onLogout={handleLogout}
         />
         <WeightCard weight={status.weight} scaleReady={status.scaleReady} onTare={tare} />
         <FeedControl onFeed={feed} feeding={status.feeding} />

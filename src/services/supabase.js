@@ -30,7 +30,8 @@ export const authService = {
   },
 
   getCurrentUser() {
-    return supabase.auth.getUser()
+    const { data } = supabase.auth.getUser()
+    return data.user
   },
 
   onAuthStateChange(callback) {
