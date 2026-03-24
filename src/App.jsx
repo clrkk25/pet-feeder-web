@@ -253,6 +253,15 @@ function App() {
     return <AuthScreen onAuth={() => setIsAuthenticated(true)} />
   }
 
+  if (showHistory) {
+    return (
+      <>
+        <FeedHistory logs={logs} onBack={() => { setShowHistory(false); setActiveTab('home'); }} />
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      </>
+    )
+  }
+
   if (activeTab === 'profile') {
     return (
       <>
@@ -262,15 +271,6 @@ function App() {
           logs={logs}
           onLogout={handleLogout}
         />
-        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
-      </>
-    )
-  }
-
-  if (showHistory && activeTab === 'history') {
-    return (
-      <>
-        <FeedHistory logs={logs} onBack={() => { setShowHistory(false); setActiveTab('home'); }} />
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       </>
     )
@@ -314,7 +314,7 @@ function App() {
             loading={cameraLoading}
           />
         </div>
-        <FeedLog logs={logs} onMore={() => setShowHistory(true)} />
+        <FeedLog logs={logs} onMore={() => handleTabChange('history')} />
       </div>
       <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
