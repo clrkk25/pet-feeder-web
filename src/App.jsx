@@ -117,6 +117,7 @@ function App() {
     client.on('connect', () => {
       console.log('[MQTT] 连接成功')
       setConnected(true)
+      console.log('[MQTT] 开始订阅 topics:', [TOPICS.status, TOPICS.log, TOPICS.schedule, TOPICS.cameraStatus])
       client.subscribe([
         TOPICS.status, 
         TOPICS.log, 
@@ -126,8 +127,10 @@ function App() {
         if (err) {
           console.error('[MQTT] 订阅失败:', err)
         } else {
-          console.log('[MQTT] 订阅成功')
+          console.log('[MQTT] 订阅成功，已订阅：status, log, schedule, cameraStatus')
+          // 连接后请求状态和定时计划
           client.publish(TOPICS.control, 'status')
+          client.publish(TOPICS.control, 'schedule')
         }
       })
     })
@@ -149,6 +152,10 @@ function App() {
       if (topic === TOPICS.status) {
         try {
           const data = JSON.parse(payload)
+          if (data.device_mac && currentDevice?.device_mac && data.device_mac !== currentDevice.device_mac) {
+            console.log('[MQTT] 忽略：MAC不匹配', data.device_mac, '!=', currentDevice.device_mac)
+            return
+          }
           setStatus(prev => ({ ...prev, ...data }))
         } catch (e) {
           console.error('[MQTT] 状态解析失败:', e)
@@ -164,13 +171,29 @@ function App() {
               parts[3]
             )
             await loadFeedRecords()
+            
+            setTimeout(() => {
+              if (clientRef.current?.connected) {
+                if (currentDevice?.device_mac) {
+                  clientRef.current.publish(TOPICS.control, JSON.stringify({
+                    action: 'status',
+                    target_mac: currentDevice.device_mac
+                  }))
+                } else {
+                  clientRef.current.publish(TOPICS.control, 'status')
+                }
+                console.log('[MQTT] 主动请求最新状态')
+              }
+            }, 2000)
           } catch (error) {
             console.error('同步记录失败:', error)
           }
         }
       } else if (topic === TOPICS.schedule) {
+        console.log('[MQTT] 收到定时计划消息:', payload)
         try {
           const data = JSON.parse(payload)
+          console.log('[SCHEDULE] 解析后的数据:', data.schedules)
           setSchedules(data.schedules || [])
         } catch (e) {
           console.error('[MQTT] 定时计划解析失败:', e)
@@ -178,6 +201,10 @@ function App() {
       } else if (topic === TOPICS.cameraStatus) {
         try {
           const data = JSON.parse(payload)
+          if (data.device_mac && currentDevice?.device_mac && data.device_mac !== currentDevice.device_mac) {
+            console.log('[CAMERA] 忽略：MAC不匹配', data.device_mac, '!=', currentDevice.device_mac)
+            return
+          }
           setCameraImage(data.url)
           setCameraLoading(false)
           console.log('[CAMERA] 图片 URL:', data.url)
@@ -200,12 +227,29 @@ function App() {
   }, [])
 
   const feed = useCallback((amount) => {
-    publish(TOPICS.control, `feed${amount}`)
-  }, [publish])
+    if (currentDevice?.device_mac) {
+      const payload = JSON.stringify({
+        action: 'feed',
+        amount: amount,
+        target_mac: currentDevice.device_mac
+      })
+      publish(TOPICS.control, payload)
+    } else {
+      publish(TOPICS.control, `feed${amount}`)
+    }
+  }, [publish, currentDevice])
 
   const tare = useCallback(() => {
-    publish(TOPICS.control, 'tare')
-  }, [publish])
+    if (currentDevice?.device_mac) {
+      const payload = JSON.stringify({
+        action: 'tare',
+        target_mac: currentDevice.device_mac
+      })
+      publish(TOPICS.control, payload)
+    } else {
+      publish(TOPICS.control, 'tare')
+    }
+  }, [publish, currentDevice])
 
   const addSchedule = useCallback((time, amount) => {
     publish(TOPICS.scheduleSet, `${time},${amount}`)
@@ -223,8 +267,17 @@ function App() {
     if (cameraLoading) return
     setCameraLoading(true)
     setCameraImage(null)
-    publish(TOPICS.cameraControl, 'capture')
-  }, [cameraLoading, publish])
+    
+    if (currentDevice?.device_mac) {
+      const payload = JSON.stringify({
+        action: 'capture',
+        target_mac: currentDevice.device_mac
+      })
+      publish(TOPICS.cameraControl, payload)
+    } else {
+      publish(TOPICS.cameraControl, 'capture')
+    }
+  }, [cameraLoading, publish, currentDevice])
 
   const handleLogout = async () => {
     try {
@@ -270,6 +323,7 @@ function App() {
           device={currentDevice}
           logs={logs}
           onLogout={handleLogout}
+          onDeviceAdded={loadDevices}
         />
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       </>

@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { authService, deviceService } from '../services/supabase'
 
-function Profile({ user, device, logs, onLogout }) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [deviceName, setDeviceName] = useState(device?.device_name || '')
+function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
   const [showAgreement, setShowAgreement] = useState(false)
+  const [showBindForm, setShowBindForm] = useState(false)
+  const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
+  const [macInput, setMacInput] = useState('')
+  const [deviceName, setDeviceName] = useState('我的喂食器')
+  const [binding, setBinding] = useState(false)
+  const [unbinding, setUnbinding] = useState(false)
   const [stats, setStats] = useState({
     totalFeeds: 0,
     totalGrams: 0,
@@ -32,24 +36,57 @@ function Profile({ user, device, logs, onLogout }) {
     }
   }, [logs])
 
-  const handleUpdateDeviceName = async () => {
-    if (!device) return
+  const handleAboutUs = () => {
+    window.open('https://github.com/clrkk25/pet-feeder-web', '_blank')
+  }
+
+  const handleBindDevice = async () => {
+    if (!macInput.trim()) {
+      alert('请输入设备MAC地址')
+      return
+    }
+    
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/
+    if (!macRegex.test(macInput.trim())) {
+      alert('MAC地址格式不正确，正确格式如：A1:B2:C3:D4:E5:F6')
+      return
+    }
+    
+    setBinding(true)
     try {
-      await deviceService.updateDevice(device.id, { device_name: deviceName })
-      setIsEditing(false)
+      await deviceService.addDevice(macInput.trim().toUpperCase(), deviceName.trim() || '我的喂食器')
+      alert('设备绑定成功！')
+      setShowBindForm(false)
+      setMacInput('')
+      setDeviceName('我的喂食器')
+      if (onDeviceAdded) {
+        onDeviceAdded()
+      }
     } catch (error) {
-      console.error('更新设备名称失败:', error)
-      alert('更新失败，请重试')
+      console.error('绑定设备失败:', error)
+      alert('绑定设备失败：' + (error.message || '未知错误'))
+    } finally {
+      setBinding(false)
     }
   }
 
-  const handleCancel = () => {
-    setDeviceName(device?.device_name || '')
-    setIsEditing(false)
-  }
-
-  const handleAboutUs = () => {
-    window.open('https://github.com/clrkk25/pet-feeder-web', '_blank')
+  const handleUnbindDevice = async () => {
+    if (!device) return
+    
+    setUnbinding(true)
+    try {
+      await deviceService.deleteDevice(device.id)
+      alert('设备已解除绑定！')
+      setShowUnbindConfirm(false)
+      if (onDeviceAdded) {
+        onDeviceAdded()
+      }
+    } catch (error) {
+      console.error('解除绑定失败:', error)
+      alert('解除绑定失败：' + (error.message || '未知错误'))
+    } finally {
+      setUnbinding(false)
+    }
   }
 
   return (
@@ -70,35 +107,63 @@ function Profile({ user, device, logs, onLogout }) {
           <div className="device-card">
             <div className="device-icon">🤖</div>
             <div className="device-info">
-              {isEditing ? (
-                <div className="edit-device-name">
-                  <input
-                    type="text"
-                    value={deviceName}
-                    onChange={(e) => setDeviceName(e.target.value)}
-                    placeholder="设备名称"
-                    autoFocus
-                  />
-                  <div className="edit-actions">
-                    <button className="btn-save" onClick={handleUpdateDeviceName}>✓</button>
-                    <button className="btn-cancel" onClick={handleCancel}>✕</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="device-name">{device.device_name || '未命名设备'}</div>
-                  <div className="device-mac">{device.device_mac}</div>
-                  <button className="btn-edit" onClick={() => setIsEditing(true)}>
-                    ✏️ 编辑
-                  </button>
-                </>
-              )}
+              <div className="device-text">
+                {device.device_name || '我的喂食器'}：{device.device_mac}
+              </div>
             </div>
+            <button className="unbind-btn" onClick={() => setShowUnbindConfirm(true)}>
+              解除绑定
+            </button>
           </div>
         ) : (
           <div className="no-device">
-            <div className="no-device-icon">📦</div>
-            <p>暂无设备</p>
+            {!showBindForm ? (
+              <>
+                <div className="no-device-icon">📦</div>
+                <p>暂无设备</p>
+                <button className="bind-btn" onClick={() => setShowBindForm(true)}>
+                  + 添加设备
+                </button>
+              </>
+            ) : (
+              <div className="bind-form">
+                <div className="bind-form-title">添加设备</div>
+                <div className="bind-form-hint">请在设备串口输出中查看MAC地址</div>
+                <input
+                  type="text"
+                  className="bind-input"
+                  placeholder="设备MAC地址 (如：A1:B2:C3:D4:E5:F6)"
+                  value={macInput}
+                  onChange={(e) => setMacInput(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="bind-input"
+                  placeholder="设备名称"
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                />
+                <div className="bind-form-actions">
+                  <button 
+                    className="bind-cancel-btn" 
+                    onClick={() => {
+                      setShowBindForm(false)
+                      setMacInput('')
+                      setDeviceName('我的喂食器')
+                    }}
+                  >
+                    取消
+                  </button>
+                  <button 
+                    className="bind-confirm-btn" 
+                    onClick={handleBindDevice}
+                    disabled={binding}
+                  >
+                    {binding ? '绑定中...' : '确认绑定'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -227,6 +292,34 @@ function Profile({ user, device, logs, onLogout }) {
         </div>
       )}
 
+      {showUnbindConfirm && (
+        <div className="agreement-overlay">
+          <div className="unbind-confirm-dialog">
+            <div className="unbind-confirm-icon">⚠️</div>
+            <h3 className="unbind-confirm-title">确认解除绑定？</h3>
+            <p className="unbind-confirm-text">
+              解除绑定后，您将无法再通过此账号控制该设备。喂食记录数据将被保留。
+            </p>
+            <div className="unbind-confirm-actions">
+              <button 
+                className="unbind-cancel-btn" 
+                onClick={() => setShowUnbindConfirm(false)}
+                disabled={unbinding}
+              >
+                取消
+              </button>
+              <button 
+                className="unbind-confirm-btn" 
+                onClick={handleUnbindDevice}
+                disabled={unbinding}
+              >
+                {unbinding ? '解除中...' : '确认解除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="profile-section">
         <button className="logout-button" onClick={onLogout}>
           <span className="logout-icon">🚪</span>
@@ -287,18 +380,18 @@ function Profile({ user, device, logs, onLogout }) {
         }
 
         .profile-section {
-          margin: 16px;
+          margin: 12px;
           background: white;
-          border-radius: 16px;
-          padding: 20px;
+          border-radius: 12px;
+          padding: 14px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
 
         .section-title {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 700;
           color: #718096;
-          margin: 0 0 16px 0;
+          margin: 0 0 10px 0;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
@@ -306,116 +399,240 @@ function Profile({ user, device, logs, onLogout }) {
         .device-card {
           display: flex;
           align-items: center;
-          gap: 16px;
-          padding: 16px;
+          gap: 12px;
+          padding: 10px 12px;
           background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
-          border-radius: 12px;
+          border-radius: 10px;
           border: 1px solid rgba(102, 126, 234, 0.1);
         }
 
         .device-icon {
-          font-size: 40px;
+          font-size: 28px;
         }
 
         .device-info {
           flex: 1;
         }
 
-        .device-name {
-          font-size: 16px;
+        .device-text {
+          font-size: 15px;
           font-weight: 600;
           color: #2d3748;
-          margin-bottom: 4px;
+          text-align: center;
         }
 
-        .device-mac {
-          font-size: 13px;
-          color: #718096;
-          font-family: monospace;
-          margin-bottom: 8px;
-        }
-
-        .btn-edit {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
+        .unbind-btn {
+          padding: 8px 16px;
+          background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+          color: #c53030;
           border: none;
-          padding: 6px 14px;
           border-radius: 8px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
+          white-space: nowrap;
         }
 
-        .btn-edit:active {
+        .unbind-btn:active {
           transform: scale(0.95);
         }
 
-        .edit-device-name {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+        .unbind-confirm-dialog {
+          background: white;
+          border-radius: 16px;
+          padding: 24px;
+          width: 100%;
+          max-width: 320px;
+          text-align: center;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
-        .edit-device-name input {
+        .unbind-confirm-icon {
+          font-size: 48px;
+          margin-bottom: 16px;
+        }
+
+        .unbind-confirm-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #2d3748;
+          margin: 0 0 12px 0;
+        }
+
+        .unbind-confirm-text {
+          font-size: 14px;
+          color: #718096;
+          margin: 0 0 24px 0;
+          line-height: 1.6;
+        }
+
+        .unbind-confirm-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .unbind-cancel-btn {
           flex: 1;
-          padding: 8px 12px;
-          border: 2px solid #e2e8f0;
+          padding: 12px;
+          border: 1px solid #e2e8f0;
+          background: white;
           border-radius: 8px;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 600;
+          color: #4a5568;
+          cursor: pointer;
+          transition: all 0.2s;
         }
 
-        .edit-device-name input:focus {
-          outline: none;
-          border-color: #667eea;
+        .unbind-cancel-btn:hover {
+          background: #f7fafc;
         }
 
-        .edit-actions {
-          display: flex;
-          gap: 6px;
+        .unbind-cancel-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
-        .btn-save, .btn-cancel {
-          width: 32px;
-          height: 32px;
+        .unbind-confirm-btn {
+          flex: 1;
+          padding: 12px;
           border: none;
+          background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
+          color: white;
           border-radius: 8px;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
         }
 
-        .btn-save {
-          background: #48bb78;
-          color: white;
+        .unbind-confirm-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
-        .btn-cancel {
-          background: #f56565;
-          color: white;
-        }
-
-        .btn-save:active, .btn-cancel:active {
-          transform: scale(0.9);
+        .unbind-confirm-btn:active:not(:disabled) {
+          transform: scale(0.98);
         }
 
         .no-device {
           text-align: center;
-          padding: 30px 20px;
+          padding: 8px 12px;
           color: #a0aec0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
         }
 
         .no-device-icon {
-          font-size: 48px;
-          margin-bottom: 12px;
+          font-size: 24px;
+          margin-bottom: 0;
           opacity: 0.5;
         }
 
         .no-device p {
           margin: 0;
+          font-size: 12px;
+        }
+
+        .bind-btn {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 6px 16px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .bind-btn:active {
+          transform: scale(0.96);
+        }
+
+        .bind-form {
+          text-align: left;
+          padding: 16px;
+          background: #f8f9fa;
+          border-radius: 12px;
+        }
+
+        .bind-form-title {
+          font-size: 16px;
+          font-weight: 700;
+          color: #2d3748;
+          margin-bottom: 8px;
+        }
+
+        .bind-form-hint {
+          font-size: 12px;
+          color: #718096;
+          margin-bottom: 16px;
+        }
+
+        .bind-input {
+          width: 100%;
+          padding: 12px;
+          margin-bottom: 12px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
           font-size: 14px;
+          box-sizing: border-box;
+          transition: border-color 0.2s;
+        }
+
+        .bind-input:focus {
+          outline: none;
+          border-color: #667eea;
+        }
+
+        .bind-form-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        .bind-cancel-btn {
+          flex: 1;
+          padding: 12px;
+          border: 1px solid #e2e8f0;
+          background: white;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #4a5568;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .bind-cancel-btn:hover {
+          background: #f7fafc;
+        }
+
+        .bind-confirm-btn {
+          flex: 1;
+          padding: 12px;
+          border: none;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .bind-confirm-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .bind-confirm-btn:active:not(:disabled) {
+          transform: scale(0.98);
         }
 
         .stats-grid {
@@ -704,6 +921,10 @@ function Profile({ user, device, logs, onLogout }) {
 
           .device-icon {
             font-size: 36px;
+          }
+
+          .device-text {
+            font-size: 14px;
           }
 
           .stats-grid {

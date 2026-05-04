@@ -41,9 +41,13 @@ export const authService = {
 
 export const deviceService = {
   async getDevices() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+    
     const { data, error } = await supabase
       .from('devices')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     
     if (error) throw error
@@ -51,11 +55,15 @@ export const deviceService = {
   },
 
   async addDevice(deviceMac, deviceName) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('用户未登录')
+
     const { data, error } = await supabase
       .from('devices')
       .insert({
         device_mac: deviceMac,
-        device_name: deviceName
+        device_name: deviceName,
+        user_id: user.id
       })
       .select()
       .single()
@@ -65,15 +73,22 @@ export const deviceService = {
   },
 
   async deleteDevice(deviceId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('用户未登录')
+
     const { error } = await supabase
       .from('devices')
       .delete()
       .eq('id', deviceId)
+      .eq('user_id', user.id)
 
     if (error) throw error
   },
 
   async getAllFeedRecords() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
     const { data, error } = await supabase
       .from('feed_records')
       .select(`
@@ -81,12 +96,19 @@ export const deviceService = {
         devices ( device_name )
       `)
       .order('feed_time', { ascending: false })
+      .limit(100)
 
-    if (error) throw error
-    return data
+    if (error) {
+      console.error('获取喂食记录失败:', error)
+      throw error
+    }
+    return data || []
   },
 
   async getFeedRecords(deviceId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
     const { data, error } = await supabase
       .from('feed_records')
       .select('*')
@@ -95,10 +117,13 @@ export const deviceService = {
       .limit(50)
 
     if (error) throw error
-    return data
+    return data || []
   },
 
   async addFeedRecord(deviceId, amount, grams, feedType) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('用户未登录')
+
     const { data, error } = await supabase
       .from('feed_records')
       .insert({
