@@ -557,13 +557,9 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
 
         .bind-form {
           text-align: left;
-          padding: 20px;
+          padding: 16px;
           background: #f8f9fa;
           border-radius: 12px;
-          min-height: 100px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
         }
 
         .bind-form-title {
