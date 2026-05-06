@@ -89,6 +89,7 @@ function App() {
       setDevices(devicesData)
       if (devicesData.length > 0) {
         setCurrentDevice(devicesData[0])
+        loadFeedRecords()
       } else {
         setCurrentDevice(null)
         setStatus({
