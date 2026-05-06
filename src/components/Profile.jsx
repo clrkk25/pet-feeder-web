@@ -518,24 +518,25 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
 
         .no-device {
           text-align: center;
-          padding: 8px 12px;
+          padding: 24px 16px;
           color: #a0aec0;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 4px;
+          min-height: 140px;
         }
 
         .no-device-icon {
-          font-size: 24px;
+          font-size: 36px;
           margin-bottom: 0;
           opacity: 0.5;
         }
 
         .no-device p {
           margin: 0;
-          font-size: 12px;
+          font-size: 14px;
         }
 
         .bind-btn {
@@ -556,9 +557,13 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
 
         .bind-form {
           text-align: left;
-          padding: 16px;
+          padding: 20px;
           background: #f8f9fa;
           border-radius: 12px;
+          min-height: 100px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
 
         .bind-form-title {
