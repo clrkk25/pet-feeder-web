@@ -89,12 +89,19 @@ export const deviceService = {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return []
 
+    const { data: userDevices } = await supabase
+      .from('devices')
+      .select('device_mac')
+      .eq('user_id', user.id)
+
+    if (!userDevices || userDevices.length === 0) return []
+
+    const macs = [...new Set(userDevices.map(d => d.device_mac))]
+
     const { data, error } = await supabase
       .from('feed_records')
-      .select(`
-        *,
-        devices ( device_name )
-      `)
+      .select('*')
+      .in('device_mac', macs)
       .order('feed_time', { ascending: false })
       .limit(100)
 
@@ -105,14 +112,11 @@ export const deviceService = {
     return data || []
   },
 
-  async getFeedRecords(deviceId) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
-
+  async getFeedRecords(deviceMac) {
     const { data, error } = await supabase
       .from('feed_records')
       .select('*')
-      .eq('device_id', deviceId)
+      .eq('device_mac', deviceMac)
       .order('feed_time', { ascending: false })
       .limit(50)
 
@@ -120,14 +124,11 @@ export const deviceService = {
     return data || []
   },
 
-  async addFeedRecord(deviceId, amount, grams, feedType) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('用户未登录')
-
+  async addFeedRecord(deviceMac, amount, grams, feedType) {
     const { data, error } = await supabase
       .from('feed_records')
       .insert({
-        device_id: deviceId,
+        device_mac: deviceMac,
         amount,
         grams,
         feed_type: feedType

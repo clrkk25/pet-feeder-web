@@ -73,7 +73,7 @@ function AuthScreen({ onAuth }) {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .auth-container {
           min-height: 100vh;
           display: flex;

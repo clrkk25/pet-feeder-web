@@ -44,7 +44,7 @@ function FeedLog({ logs, onMore }) {
           ))
         )}
       </div>
-      <style jsx>{`
+      <style>{`
         .empty-text {
           color: #a0aec0;
           text-align: center;

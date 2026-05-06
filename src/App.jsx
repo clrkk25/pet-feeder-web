@@ -165,7 +165,7 @@ function App() {
         if (parts.length >= 4 && currentDevice) {
           try {
             await deviceService.addFeedRecord(
-              currentDevice.id,
+              currentDevice.device_mac,
               parseInt(parts[1]),
               parseFloat(parts[2]),
               parts[3]
@@ -201,10 +201,6 @@ function App() {
       } else if (topic === TOPICS.cameraStatus) {
         try {
           const data = JSON.parse(payload)
-          if (data.device_mac && currentDevice?.device_mac && data.device_mac !== currentDevice.device_mac) {
-            console.log('[CAMERA] 忽略：MAC不匹配', data.device_mac, '!=', currentDevice.device_mac)
-            return
-          }
           setCameraImage(data.url)
           setCameraLoading(false)
           console.log('[CAMERA] 图片 URL:', data.url)
