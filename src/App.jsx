@@ -76,6 +76,13 @@ function App() {
     currentDeviceRef.current = currentDevice
   }, [currentDevice])
 
+  useEffect(() => {
+    if (currentDevice?.device_mac && clientRef.current?.connected) {
+      clientRef.current.publish(TOPICS.control, JSON.stringify({ action: 'status', target_mac: currentDevice.device_mac }))
+      clientRef.current.publish(TOPICS.control, JSON.stringify({ action: 'schedule', target_mac: currentDevice.device_mac }))
+    }
+  }, [currentDevice])
+
   const loadDevices = async () => {
     try {
       const devicesData = await deviceService.getDevices()
