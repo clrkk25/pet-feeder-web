@@ -265,6 +265,8 @@ function App() {
   }, [])
 
   const feed = useCallback((amount) => {
+    const now = new Date()
+    console.log(`[FEED] 发送喂食指令: amount=${amount}, time=${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}.${now.getMilliseconds().toString().padStart(3,'0')}`)
     if (currentDevice?.device_mac) {
       const payload = JSON.stringify({
         action: 'feed',
