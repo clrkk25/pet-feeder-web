@@ -53,6 +53,8 @@ function App() {
   const [cameraImage, setCameraImage] = useState(null)
   const [cameraLoading, setCameraLoading] = useState(false)
   const clientRef = useRef(null)
+  const clientGenRef = useRef(0)
+  const currentDeviceRef = useRef(null)
   const lastCheckTimeRef = useRef(null)
 
   useEffect(() => {
@@ -70,12 +72,29 @@ function App() {
     }
   }, [isAuthenticated])
 
+  useEffect(() => {
+    currentDeviceRef.current = currentDevice
+  }, [currentDevice])
+
   const loadDevices = async () => {
     try {
       const devicesData = await deviceService.getDevices()
       setDevices(devicesData)
       if (devicesData.length > 0) {
         setCurrentDevice(devicesData[0])
+      } else {
+        setCurrentDevice(null)
+        setStatus({
+          feed_today: 0,
+          rssi: 0,
+          time: '--:--:--',
+          feeding: false,
+          weight: 0,
+          scaleReady: false
+        })
+        setSchedules([])
+        setCameraImage(null)
+        setLogs([])
       }
     } catch (error) {
       console.error('加载设备失败:', error)
@@ -111,10 +130,12 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated) return
 
+    const gen = ++clientGenRef.current
     const client = mqtt.connect(MQTT_CONFIG.url, MQTT_CONFIG.options)
     clientRef.current = client
 
     client.on('connect', () => {
+      if (gen !== clientGenRef.current) return
       console.log('[MQTT] 连接成功')
       setConnected(true)
       console.log('[MQTT] 开始订阅 topics:', [TOPICS.status, TOPICS.log, TOPICS.schedule, TOPICS.cameraStatus])
@@ -128,32 +149,43 @@ function App() {
           console.error('[MQTT] 订阅失败:', err)
         } else {
           console.log('[MQTT] 订阅成功，已订阅：status, log, schedule, cameraStatus')
-          // 连接后请求状态和定时计划
-          client.publish(TOPICS.control, 'status')
-          client.publish(TOPICS.control, 'schedule')
+          const dev = currentDeviceRef.current
+          if (dev?.device_mac) {
+            client.publish(TOPICS.control, JSON.stringify({ action: 'status', target_mac: dev.device_mac }))
+            client.publish(TOPICS.control, JSON.stringify({ action: 'schedule', target_mac: dev.device_mac }))
+          }
         }
       })
     })
 
     client.on('close', () => {
+      if (gen !== clientGenRef.current) return
       console.log('[MQTT] 连接关闭')
       setConnected(false)
     })
     
     client.on('error', (err) => {
+      if (gen !== clientGenRef.current) return
       console.error('[MQTT] 连接错误:', err)
       setConnected(false)
     })
 
     client.on('message', async (topic, message) => {
+      if (gen !== clientGenRef.current) return
+      const dev = currentDeviceRef.current
       const payload = message.toString()
       console.log('[MQTT] 收到消息:', topic, payload)
+
+      if (!dev?.device_mac) {
+        console.log('[MQTT] 忽略：未绑定设备')
+        return
+      }
       
       if (topic === TOPICS.status) {
         try {
           const data = JSON.parse(payload)
-          if (data.device_mac && currentDevice?.device_mac && data.device_mac !== currentDevice.device_mac) {
-            console.log('[MQTT] 忽略：MAC不匹配', data.device_mac, '!=', currentDevice.device_mac)
+          if (data.device_mac && data.device_mac !== dev.device_mac) {
+            console.log('[MQTT] 忽略状态：设备MAC不匹配', data.device_mac, '!=', dev.device_mac)
             return
           }
           setStatus(prev => ({ ...prev, ...data }))
@@ -162,10 +194,10 @@ function App() {
         }
       } else if (topic === TOPICS.log) {
         const parts = payload.split(',')
-        if (parts.length >= 4 && currentDevice) {
+        if (parts.length >= 4) {
           try {
             await deviceService.addFeedRecord(
-              currentDevice.device_mac,
+              dev.device_mac,
               parseInt(parts[1]),
               parseFloat(parts[2]),
               parts[3]
@@ -173,15 +205,11 @@ function App() {
             await loadFeedRecords()
             
             setTimeout(() => {
-              if (clientRef.current?.connected) {
-                if (currentDevice?.device_mac) {
-                  clientRef.current.publish(TOPICS.control, JSON.stringify({
-                    action: 'status',
-                    target_mac: currentDevice.device_mac
-                  }))
-                } else {
-                  clientRef.current.publish(TOPICS.control, 'status')
-                }
+              if (clientRef.current?.connected && gen === clientGenRef.current) {
+                clientRef.current.publish(TOPICS.control, JSON.stringify({
+                  action: 'status',
+                  target_mac: dev.device_mac
+                }))
                 console.log('[MQTT] 主动请求最新状态')
               }
             }, 2000)
@@ -190,17 +218,26 @@ function App() {
           }
         }
       } else if (topic === TOPICS.schedule) {
-        console.log('[MQTT] 收到定时计划消息:', payload)
         try {
           const data = JSON.parse(payload)
-          console.log('[SCHEDULE] 解析后的数据:', data.schedules)
-          setSchedules(data.schedules || [])
+          if (data.device_mac && data.device_mac !== dev.device_mac) {
+            console.log('[MQTT] 忽略定时计划：设备MAC不匹配', data.device_mac, '!=', dev.device_mac)
+            return
+          }
+          if (data.schedules) {
+            console.log('[SCHEDULE] 更新定时计划')
+            setSchedules(data.schedules)
+          }
         } catch (e) {
           console.error('[MQTT] 定时计划解析失败:', e)
         }
       } else if (topic === TOPICS.cameraStatus) {
         try {
           const data = JSON.parse(payload)
+          if (data.device_mac && data.device_mac !== dev.device_mac) {
+            console.log('[MQTT] 忽略摄像头：设备MAC不匹配', data.device_mac, '!=', dev.device_mac)
+            return
+          }
           setCameraImage(data.url)
           setCameraLoading(false)
           console.log('[CAMERA] 图片 URL:', data.url)
@@ -212,9 +249,10 @@ function App() {
     })
 
     return () => {
-      if (client) client.end()
+      console.log('[MQTT] 清理连接, gen=', gen)
+      client.end()
     }
-  }, [isAuthenticated, currentDevice])
+  }, [isAuthenticated])
 
   const publish = useCallback((topic, message) => {
     if (clientRef.current?.connected) {
@@ -347,7 +385,12 @@ function App() {
           connected={connected} 
           device={currentDevice}
           devices={devices}
-          onDeviceChange={setCurrentDevice}
+          onDeviceChange={(d) => {
+            setCurrentDevice(d)
+            setStatus({ feed_today: 0, rssi: 0, time: '--:--:--', feeding: false, weight: 0, scaleReady: false })
+            setSchedules([])
+            setCameraImage(null)
+          }}
         />
         <WeightCard weight={status.weight} scaleReady={status.scaleReady} onTare={tare} />
         <FeedControl onFeed={feed} feeding={status.feeding} />
