@@ -234,10 +234,6 @@ function App() {
       } else if (topic === TOPICS.cameraStatus) {
         try {
           const data = JSON.parse(payload)
-          if (data.device_mac && data.device_mac !== dev.device_mac) {
-            console.log('[MQTT] 忽略摄像头：设备MAC不匹配', data.device_mac, '!=', dev.device_mac)
-            return
-          }
           setCameraImage(data.url)
           setCameraLoading(false)
           console.log('[CAMERA] 图片 URL:', data.url)
