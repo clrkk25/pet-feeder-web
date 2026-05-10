@@ -3,7 +3,7 @@ import { authService, deviceService } from '../services/supabase'
 
 const GITHUB_REPO = 'clrkk25/pet-feeder-web'
 
-function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceVersion, otaStatus, setOtaStatus, otaCallbackRef }) {
+function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publish, deviceVersion, otaStatus, setOtaStatus, otaCallbackRef }) {
   const [showAgreement, setShowAgreement] = useState(false)
   const [showBindForm, setShowBindForm] = useState(false)
   const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
@@ -26,6 +26,7 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
     totalGrams: 0,
     usageDays: 0
   })
+  const [showExport, setShowExport] = useState(false)
 
   useEffect(() => {
     if (logs && logs.length > 0) {
@@ -113,6 +114,67 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
 
   const handleAboutUs = () => {
     window.open('https://github.com/clrkk25/pet-feeder-web', '_blank')
+  }
+
+  const downloadCSV = (csvContent, filename) => {
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
+  const exportFeedRecords = () => {
+    if (!logs || logs.length === 0) {
+      alert('暂无喂食记录可导出')
+      return
+    }
+    const typeMap = { auto: '定时', remote: '远程', manual: '手动' }
+    let csv = '时间,份数,重量(g),类型\n'
+    logs.forEach(log => {
+      const time = new Date(log.feed_time).toLocaleString('zh-CN', { hour12: false })
+      const type = typeMap[log.feed_type] || log.feed_type
+      csv += `${time},${log.amount},${log.grams},${type}\n`
+    })
+    const dateStr = new Date().toISOString().slice(0, 10)
+    downloadCSV(csv, `喂食记录_${dateStr}.csv`)
+    setShowExport(false)
+  }
+
+  const exportSchedules = () => {
+    if (!device) {
+      alert('未绑定设备')
+      return
+    }
+    publish('pet/feeder/control', JSON.stringify({
+      action: 'schedule',
+      target_mac: device.device_mac
+    }))
+    setTimeout(() => {
+      if (!schedules || schedules.length === 0) {
+        alert('暂无定时计划可导出')
+        return
+      }
+      let csv = '时间,份数,启用状态\n'
+      schedules.forEach(s => {
+        const time = s.time || `${String(s.hour || 0).padStart(2, '0')}:${String(s.minute || 0).padStart(2, '0')}`
+        const enabled = s.enabled ? '是' : '否'
+        csv += `${time},${s.amount},${enabled}\n`
+      })
+      const dateStr = new Date().toISOString().slice(0, 10)
+      downloadCSV(csv, `定时计划_${dateStr}.csv`)
+      setShowExport(false)
+    }, 1000)
+  }
+
+  const exportAll = () => {
+    if (!logs || logs.length === 0) {
+      alert('暂无数据可导出')
+      return
+    }
+    exportFeedRecords()
   }
 
   const handleCheckUpdate = () => {
@@ -300,7 +362,7 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
             <div className="quick-action-icon">🗑️</div>
             <div className="quick-action-label">清理记录</div>
           </div>
-          <div className="quick-action-item" onClick={() => alert('导出数据功能开发中...')}>
+          <div className="quick-action-item" onClick={() => setShowExport(true)}>
             <div className="quick-action-icon">📊</div>
             <div className="quick-action-label">导出数据</div>
           </div>
@@ -317,13 +379,13 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
 
       <div className="profile-section">
         <div className="settings-list">
-          <div className="setting-item" onClick={handleAboutUs}>
+          <a className="setting-item" href={`https://github.com/${GITHUB_REPO}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="setting-left">
               <span className="setting-icon">ℹ️</span>
               <span className="setting-label">关于我们</span>
             </div>
             <span className="setting-arrow">›</span>
-          </div>
+          </a>
           <div className="setting-item" onClick={() => setShowAgreement(true)}>
             <div className="setting-left">
               <span className="setting-icon">📝</span>
@@ -385,7 +447,7 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
 
               <h3>九、联系我们</h3>
               <p>如有任何问题或建议，请通过以下方式联系我们：</p>
-              <p>GitHub: https://github.com/yourusername</p>
+              <p>GitHub: <a href={`https://github.com/${GITHUB_REPO}`} target="_blank" rel="noopener noreferrer">https://github.com/{GITHUB_REPO}</a></p>
 
               <h3>十、法律适用</h3>
               <p>本协议受中华人民共和国法律管辖，因本协议引起的争议应提交至有管辖权的人民法院解决。</p>
@@ -508,6 +570,40 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
                   ⚠️ 更新过程中请勿关闭设备电源，更新完成后设备将自动重启
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExport && (
+        <div className="agreement-overlay">
+          <div className="export-dialog">
+            <div className="export-dialog-header">
+              <h2>导出数据</h2>
+              <button className="close-btn" onClick={() => setShowExport(false)}>✕</button>
+            </div>
+            <div className="export-dialog-body">
+              <div className="export-option" onClick={exportFeedRecords}>
+                <div className="export-option-icon">📋</div>
+                <div className="export-option-text">
+                  <div className="export-option-title">喂食记录</div>
+                  <div className="export-option-desc">导出所有喂食记录为 CSV 文件</div>
+                </div>
+              </div>
+              <div className="export-option" onClick={exportSchedules}>
+                <div className="export-option-icon">⏰</div>
+                <div className="export-option-text">
+                  <div className="export-option-title">定时计划</div>
+                  <div className="export-option-desc">导出当前定时计划为 CSV 文件</div>
+                </div>
+              </div>
+              <div className="export-option" onClick={exportAll}>
+                <div className="export-option-icon">📦</div>
+                <div className="export-option-text">
+                  <div className="export-option-title">全部导出</div>
+                  <div className="export-option-desc">同时导出喂食记录和定时计划</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1361,6 +1457,82 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceV
           text-align: center;
           font-size: 13px;
           color: #718096;
+        }
+
+        .export-dialog {
+          background: white;
+          border-radius: 16px;
+          padding: 0;
+          width: 100%;
+          max-width: 360px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+          overflow: hidden;
+        }
+
+        .export-dialog-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 20px 24px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .export-dialog-header h2 {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 700;
+          color: #2d3748;
+        }
+
+        .export-dialog-body {
+          padding: 16px;
+        }
+
+        .export-option {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 16px;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+          border: 1px solid #e2e8f0;
+          margin-bottom: 12px;
+        }
+
+        .export-option:last-child {
+          margin-bottom: 0;
+        }
+
+        .export-option:hover {
+          background: #f7fafc;
+          border-color: #667eea;
+        }
+
+        .export-option:active {
+          transform: scale(0.98);
+        }
+
+        .export-option-icon {
+          font-size: 32px;
+          flex-shrink: 0;
+        }
+
+        .export-option-text {
+          flex: 1;
+        }
+
+        .export-option-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #2d3748;
+          margin-bottom: 4px;
+        }
+
+        .export-option-desc {
+          font-size: 13px;
+          color: #718096;
+          line-height: 1.4;
         }
 
         @media (max-width: 480px) {

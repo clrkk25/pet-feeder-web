@@ -403,6 +403,7 @@ function App() {
           user={currentUser} 
           device={currentDevice}
           logs={logs}
+          schedules={schedules}
           onLogout={handleLogout}
           onDeviceAdded={loadDevices}
           publish={publish}
