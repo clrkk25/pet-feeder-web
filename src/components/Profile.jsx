@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react'
 import { authService, deviceService } from '../services/supabase'
 
-function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
+const GITHUB_REPO = 'clrkk25/pet-feeder-web'
+
+function Profile({ user, device, logs, onLogout, onDeviceAdded, publish, deviceVersion, otaStatus, setOtaStatus, otaCallbackRef }) {
   const [showAgreement, setShowAgreement] = useState(false)
   const [showBindForm, setShowBindForm] = useState(false)
   const [showUnbindConfirm, setShowUnbindConfirm] = useState(false)
+  const [showUpdate, setShowUpdate] = useState(false)
   const [macInput, setMacInput] = useState('')
   const [deviceName, setDeviceName] = useState('我的喂食器')
   const [binding, setBinding] = useState(false)
   const [unbinding, setUnbinding] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [updateMessage, setUpdateMessage] = useState('')
+  const [otaProgress, setOtaProgress] = useState(0)
+  const [otaStartTime, setOtaStartTime] = useState(null)
+  const [latestVersion, setLatestVersion] = useState('1.0.0')
+  const [releases, setReleases] = useState([])
+  const [selectedVersion, setSelectedVersion] = useState('')
+  const [releaseNotes, setReleaseNotes] = useState('')
   const [stats, setStats] = useState({
     totalFeeds: 0,
     totalGrams: 0,
@@ -36,8 +48,103 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
     }
   }, [logs])
 
+  useEffect(() => {
+    fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const allReleases = data.map(r => ({
+            version: r.tag_name.replace('v', ''),
+            name: r.name,
+            body: r.body || '',
+            assets: r.assets
+          }))
+          setReleases(allReleases)
+          setLatestVersion(allReleases[0].version)
+          setSelectedVersion(allReleases[0].version)
+          setReleaseNotes(allReleases[0].body)
+        }
+      })
+      .catch(() => {
+        setLatestVersion('1.0.0')
+        setReleases([{ version: '1.0.0', name: 'v1.0.0', body: '初始版本', assets: [] }])
+        setSelectedVersion('1.0.0')
+      })
+  }, [])
+
+  useEffect(() => {
+    if (otaStatus) {
+      if (otaStatus.status === 'downloading') {
+        if (!otaStartTime) setOtaStartTime(Date.now())
+        setUpdating(true)
+        setUpdateMessage(otaStatus.message || '正在下载固件...')
+        // 估算进度：每次连接尝试约60秒，3次最多180秒
+        if (otaStatus.message) {
+          if (otaStatus.message.includes('第 1 次')) setOtaProgress(30)
+          else if (otaStatus.message.includes('第 2 次')) setOtaProgress(60)
+          else if (otaStatus.message.includes('第 3 次')) setOtaProgress(85)
+        }
+      } else if (otaStatus.status === 'success') {
+        setUpdating(false)
+        setOtaProgress(100)
+        setOtaStartTime(null)
+        setUpdateMessage('更新成功！设备已重启')
+      } else if (otaStatus.status === 'error') {
+        setUpdating(false)
+        setOtaProgress(0)
+        setOtaStartTime(null)
+        setUpdateMessage('更新失败：' + (otaStatus.error || '未知错误'))
+      }
+    }
+  }, [otaStatus])
+
+  // 倒计时刷新（每秒更新一次进度和剩余时间）
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!updating || !otaStartTime) return
+    const timer = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(timer)
+  }, [updating, otaStartTime])
+
+  // 动态计算进度条百分比（每秒刷新）
+  const dynamicProgress = otaStartTime
+    ? Math.min(95, Math.round(((Date.now() - otaStartTime) / 180000) * 100))
+    : otaProgress
+
   const handleAboutUs = () => {
     window.open('https://github.com/clrkk25/pet-feeder-web', '_blank')
+  }
+
+  const handleCheckUpdate = () => {
+    if (!device?.device_mac) return
+    
+    setCheckingUpdate(true)
+    setUpdateMessage('')
+    setOtaStatus(null)
+    
+    publish('pet/feeder/control', JSON.stringify({
+      action: 'version',
+      target_mac: device.device_mac
+    }))
+    
+    setTimeout(() => {
+      setCheckingUpdate(false)
+    }, 3000)
+  }
+
+  const handleStartUpdate = () => {
+    if (!device?.device_mac) return
+    
+    setUpdating(true)
+    setUpdateMessage('正在发送更新指令...')
+    
+    const firmwareUrl = 'https://github.com/' + GITHUB_REPO + '/releases/download/v' + selectedVersion + '/mqtt_feeder_v' + selectedVersion + '.bin'
+    
+    publish('pet/feeder/control', JSON.stringify({
+      action: 'ota',
+      url: firmwareUrl,
+      target_mac: device.device_mac
+    }))
   }
 
   const handleBindDevice = async () => {
@@ -197,9 +304,9 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
             <div className="quick-action-icon">📊</div>
             <div className="quick-action-label">导出数据</div>
           </div>
-          <div className="quick-action-item" onClick={() => alert('设备诊断功能开发中...')}>
-            <div className="quick-action-icon">🔧</div>
-            <div className="quick-action-label">设备诊断</div>
+          <div className="quick-action-item" onClick={() => setShowUpdate(true)}>
+            <div className="quick-action-icon">�</div>
+            <div className="quick-action-label">设备更新</div>
           </div>
           <div className="quick-action-item" onClick={() => alert('帮助中心功能开发中...')}>
             <div className="quick-action-icon">❓</div>
@@ -292,6 +399,120 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
         </div>
       )}
 
+      {showUpdate && (
+        <div className="agreement-overlay">
+          <div className="update-content">
+            <div className="update-header">
+              <h2>设备更新</h2>
+              <button className="close-btn" onClick={() => {
+                setShowUpdate(false)
+                setUpdateMessage('')
+                setCheckingUpdate(false)
+                setUpdating(false)
+                setOtaStatus(null)
+                setOtaProgress(0)
+                setOtaStartTime(null)
+              }}>✕</button>
+            </div>
+            <div className="update-body">
+              <div className="update-version-info">
+                <div className="update-version-item">
+                  <span className="update-version-label">当前版本：</span>
+                  <span className={`update-version-value ${deviceVersion !== null && deviceVersion !== latestVersion ? 'update-version-outdated' : ''}`}>
+                    {deviceVersion || '未知'}
+                  </span>
+                </div>
+                <div className="update-version-item">
+                  <span className="update-version-label">最新版本：</span>
+                  <span className="update-version-value update-version-latest">v{latestVersion}</span>
+                </div>
+              </div>
+
+              <div className="update-release-list">
+                <div className="update-release-list-title">所有版本：</div>
+                <div className="update-release-list-body">
+                  {releases.map(r => (
+                    <div 
+                      key={r.version} 
+                      className={`update-release-item ${selectedVersion === r.version ? 'update-release-item-selected' : ''}`}
+                      onClick={() => {
+                        setSelectedVersion(r.version)
+                        setReleaseNotes(r.body || '')
+                      }}
+                    >
+                      <div className="update-release-item-header">
+                        <span className="update-release-item-version">v{r.version}</span>
+                        {r.version === latestVersion && <span className="update-release-item-badge">最新</span>}
+                        {deviceVersion && r.version === deviceVersion && <span className="update-release-item-badge update-release-item-badge-current">当前</span>}
+                      </div>
+                      <div className="update-release-item-body">
+                        {(r.body || '').split('\n').filter(line => line.trim()).map((line, i) => (
+                          <div key={i}>{line}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <a 
+                href={`https://github.com/${GITHUB_REPO}/releases`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="update-view-all-link"
+              >
+                查看更多版本 →
+              </a>
+
+              {updateMessage && otaStatus && (
+                <div className={`update-message ${otaStatus?.status === 'error' ? 'update-message-error' : otaStatus?.status === 'success' ? 'update-message-success' : ''}`}>
+                  {updateMessage}
+                </div>
+              )}
+
+              {updating && otaStatus?.status === 'downloading' && (
+                <div className="update-progress-container">
+                  <div className="update-progress-bar">
+                    <div 
+                      className="update-progress-fill" 
+                      style={{ width: `${dynamicProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="update-progress-text">
+                    预计等待约 {otaStartTime ? Math.max(0, Math.round(180 - (Date.now() - otaStartTime) / 1000)) : 180} 秒
+                  </div>
+                </div>
+              )}
+
+              <div className="update-actions">
+                <button 
+                  className="update-check-btn" 
+                  onClick={handleCheckUpdate}
+                  disabled={checkingUpdate || updating}
+                >
+                  {checkingUpdate ? '检查中...' : '检查更新'}
+                </button>
+                {!checkingUpdate && deviceVersion && (
+                  <button 
+                    className="update-start-btn" 
+                    onClick={handleStartUpdate}
+                    disabled={updating || selectedVersion === deviceVersion}
+                  >
+                    {updating ? '更新中...' : selectedVersion === deviceVersion ? '已是此版本' : '开始更新'}
+                  </button>
+                )}
+              </div>
+
+              {updating && (
+                <div className="update-warning">
+                  ⚠️ 更新过程中请勿关闭设备电源，更新完成后设备将自动重启
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showUnbindConfirm && (
         <div className="agreement-overlay">
           <div className="unbind-confirm-dialog">
@@ -328,7 +549,7 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
       </div>
 
       <div className="version-info">
-        <p>Version 1.0.0</p>
+        <p>前端 Version 1.0.0</p>
         <p>© 2026 智能宠物喂食器</p>
       </div>
 
@@ -796,7 +1017,8 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
           padding: 20px;
         }
 
-        .agreement-content {
+        .agreement-content,
+        .update-content {
           background: white;
           border-radius: 16px;
           width: 100%;
@@ -807,7 +1029,8 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
-        .agreement-header {
+        .agreement-header,
+        .update-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -815,7 +1038,8 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
           border-bottom: 1px solid #e2e8f0;
         }
 
-        .agreement-header h2 {
+        .agreement-header h2,
+        .update-header h2 {
           margin: 0;
           font-size: 20px;
           font-weight: 700;
@@ -840,7 +1064,8 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
           background: #edf2f7;
         }
 
-        .agreement-body {
+        .agreement-body,
+        .update-body {
           flex: 1;
           overflow-y: auto;
           padding: 20px;
@@ -886,6 +1111,256 @@ function Profile({ user, device, logs, onLogout, onDeviceAdded }) {
           font-size: 12px;
           color: #a0aec0;
           margin: 4px 0;
+        }
+
+        .update-version-info {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-bottom: 20px;
+          padding: 16px;
+          background: #f8f9fa;
+          border-radius: 12px;
+        }
+
+        .update-version-select-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .update-version-label {
+          font-size: 15px;
+          color: #4a5568;
+          font-weight: 500;
+        }
+
+        .update-version-value {
+          font-size: 16px;
+          font-weight: 700;
+          color: #2d3748;
+        }
+
+        .update-version-outdated {
+          color: #e53e3e;
+        }
+
+        .update-version-latest {
+          color: #38a169;
+        }
+
+        .update-release-list {
+          margin-bottom: 16px;
+        }
+
+        .update-release-list-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #2d3748;
+          margin-bottom: 10px;
+        }
+
+        .update-release-list-body {
+          max-height: 300px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .update-release-item {
+          padding: 12px 14px;
+          background: #f8f9fa;
+          border-radius: 10px;
+          border: 2px solid transparent;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .update-release-item:hover {
+          background: #edf2f7;
+        }
+
+        .update-release-item:active {
+          transform: scale(0.98);
+        }
+
+        .update-release-item-selected {
+          border-color: #667eea;
+          background: #ebf4ff;
+        }
+
+        .update-release-item-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+
+        .update-release-item-version {
+          font-size: 15px;
+          font-weight: 700;
+          color: #2d3748;
+        }
+
+        .update-release-item-badge {
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-weight: 600;
+          background: #38a169;
+          color: white;
+        }
+
+        .update-release-item-badge-current {
+          background: #667eea;
+        }
+
+        .update-release-item-body {
+          font-size: 13px;
+          color: #4a5568;
+          line-height: 1.6;
+          white-space: pre-line;
+        }
+
+        .update-release-notes {
+          margin-bottom: 16px;
+          padding: 16px;
+          background: #f8f9fa;
+          border-radius: 12px;
+        }
+
+        .update-release-notes-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #2d3748;
+          margin-bottom: 8px;
+        }
+
+        .update-release-notes-body {
+          font-size: 13px;
+          color: #4a5568;
+          line-height: 1.8;
+          white-space: pre-line;
+        }
+
+        .update-view-all-link {
+          display: block;
+          text-align: center;
+          font-size: 14px;
+          color: #667eea;
+          text-decoration: none;
+          font-weight: 600;
+          margin-bottom: 16px;
+          transition: color 0.2s;
+        }
+
+        .update-view-all-link:hover {
+          color: #764ba2;
+        }
+
+        .update-message {
+          margin-bottom: 16px;
+          padding: 12px;
+          border-radius: 8px;
+          font-size: 14px;
+          color: #4a5568;
+          background: #f0f2f5;
+          text-align: center;
+        }
+
+        .update-message-success {
+          background: #c6f6d5;
+          color: #276749;
+        }
+
+        .update-message-error {
+          background: #fed7d7;
+          color: #c53030;
+        }
+
+        .update-actions {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .update-check-btn {
+          flex: 1;
+          padding: 12px;
+          border: 1px solid #667eea;
+          background: white;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #667eea;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .update-check-btn:hover {
+          background: #f7fafc;
+        }
+
+        .update-check-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .update-start-btn {
+          flex: 1;
+          padding: 12px;
+          border: none;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .update-start-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .update-start-btn:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+
+        .update-warning {
+          padding: 12px;
+          background: #fefcbf;
+          border-radius: 8px;
+          font-size: 13px;
+          color: #975a16;
+          text-align: center;
+        }
+
+        .update-progress-container {
+          margin-bottom: 16px;
+        }
+
+        .update-progress-bar {
+          height: 8px;
+          background: #e2e8f0;
+          border-radius: 4px;
+          overflow: hidden;
+          margin-bottom: 8px;
+        }
+
+        .update-progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+          border-radius: 4px;
+          transition: width 0.5s ease;
+        }
+
+        .update-progress-text {
+          text-align: center;
+          font-size: 13px;
+          color: #718096;
         }
 
         @media (max-width: 480px) {

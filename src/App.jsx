@@ -52,10 +52,13 @@ function App() {
   const [showLowFoodAlert, setShowLowFoodAlert] = useState(false)
   const [cameraImage, setCameraImage] = useState(null)
   const [cameraLoading, setCameraLoading] = useState(false)
+  const [otaStatus, setOtaStatus] = useState(null)
+  const [deviceVersion, setDeviceVersion] = useState(null)
   const clientRef = useRef(null)
   const clientGenRef = useRef(0)
   const currentDeviceRef = useRef(null)
   const lastCheckTimeRef = useRef(null)
+  const otaCallbackRef = useRef(null)
 
   useEffect(() => {
     const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
@@ -195,6 +198,44 @@ function App() {
           if (data.device_mac && data.device_mac !== dev.device_mac) {
             console.log('[MQTT] 忽略状态：设备MAC不匹配', data.device_mac, '!=', dev.device_mac)
             return
+          }
+          if (data.version) {
+            console.log('[OTA] 设备版本:', data.version)
+            const prevVersion = deviceVersion
+            setDeviceVersion(data.version)
+            
+            // 如果正在 OTA 更新中，设备重新上线时根据版本号判断成功/失败
+            if (otaStatus?.status === 'downloading') {
+              if (prevVersion && data.version !== prevVersion) {
+                // 版本号变了 → 更新成功
+                setOtaStatus({ status: 'success', message: '更新成功！设备版本已升级为 v' + data.version })
+                if (otaCallbackRef.current) {
+                  otaCallbackRef.current({ status: 'success', message: '更新成功！设备已重启' })
+                }
+              } else if (prevVersion && data.version === prevVersion) {
+                // 版本号未变 → 更新失败
+                setOtaStatus({ status: 'error', error: '版本未更新，当前仍为 v' + data.version })
+                if (otaCallbackRef.current) {
+                  otaCallbackRef.current({ status: 'error', error: '更新失败，版本未变化' })
+                }
+              }
+              setOtaStartTime(null)
+            }
+          }
+          if (data.ota_status) {
+            console.log('[OTA] 更新状态:', data.ota_status)
+            setOtaStatus({
+              status: data.ota_status,
+              error: data.error || null,
+              message: data.message || null
+            })
+            if (otaCallbackRef.current) {
+              otaCallbackRef.current({
+                status: data.ota_status,
+                error: data.error || null,
+                message: data.message || null
+              })
+            }
           }
           setStatus(prev => ({ ...prev, ...data }))
         } catch (e) {
@@ -364,6 +405,11 @@ function App() {
           logs={logs}
           onLogout={handleLogout}
           onDeviceAdded={loadDevices}
+          publish={publish}
+          deviceVersion={deviceVersion}
+          otaStatus={otaStatus}
+          setOtaStatus={setOtaStatus}
+          otaCallbackRef={otaCallbackRef}
         />
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       </>
