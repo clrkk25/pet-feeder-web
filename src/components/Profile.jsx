@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { authService, deviceService } from '../services/supabase'
 
 const GITHUB_REPO = 'clrkk25/pet-feeder-web'
+const GITEE_REPO = 'clrkk25/pet-feeder-web'
 
 function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publish, deviceVersion, otaStatus, setOtaStatus, otaCallbackRef }) {
   const [showAgreement, setShowAgreement] = useState(false)
@@ -19,8 +20,12 @@ function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publi
   const [otaStartTime, setOtaStartTime] = useState(null)
   const [latestVersion, setLatestVersion] = useState('1.0.0')
   const [releases, setReleases] = useState([])
+  const [giteeReleases, setGiteeReleases] = useState([])
+  const [githubReleases, setGithubReleases] = useState([])
+  const [giteeError, setGiteeError] = useState('')
   const [selectedVersion, setSelectedVersion] = useState('')
   const [releaseNotes, setReleaseNotes] = useState('')
+  const [downloadSource, setDownloadSource] = useState('gitee')
   const [stats, setStats] = useState({
     totalFeeds: 0,
     totalGrams: 0,
@@ -50,28 +55,111 @@ function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publi
   }, [logs])
 
   useEffect(() => {
-    fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          const allReleases = data.map(r => ({
-            version: r.tag_name.replace('v', ''),
-            name: r.name,
-            body: r.body || '',
-            assets: r.assets
-          }))
-          setReleases(allReleases)
-          setLatestVersion(allReleases[0].version)
-          setSelectedVersion(allReleases[0].version)
-          setReleaseNotes(allReleases[0].body)
+    const fetchReleases = async () => {
+      // 获取 Gitee 版本
+      try {
+        console.log('[OTA] 尝试从 Gitee 获取版本列表...')
+        const giteeUrl = `https://gitee.com/api/v5/repos/${GITEE_REPO}/releases`
+        console.log('[OTA] Gitee URL:', giteeUrl)
+        const giteeRes = await fetch(giteeUrl)
+        console.log('[OTA] Gitee 状态:', giteeRes.status)
+        
+        if (!giteeRes.ok) {
+          throw new Error(`HTTP ${giteeRes.status}`)
         }
-      })
-      .catch(() => {
-        setLatestVersion('1.0.0')
-        setReleases([{ version: '1.0.0', name: 'v1.0.0', body: '初始版本', assets: [] }])
-        setSelectedVersion('1.0.0')
-      })
+        
+        const giteeData = await giteeRes.json()
+        console.log('[OTA] Gitee 响应:', giteeData)
+        
+        if (Array.isArray(giteeData) && giteeData.length > 0) {
+          const data = giteeData.map(r => ({
+            version: r.tag_name.replace('v', ''),
+            name: r.name || r.tag_name,
+            body: r.body || '',
+            assets: r.assets || [],
+            source: 'gitee'
+          })).sort((a, b) => {
+            const vA = a.version.split('.').map(Number)
+            const vB = b.version.split('.').map(Number)
+            for (let i = 0; i < Math.max(vA.length, vB.length); i++) {
+              if ((vA[i] || 0) !== (vB[i] || 0)) return (vB[i] || 0) - (vA[i] || 0)
+            }
+            return 0
+          })
+          console.log('[OTA] Gitee 解析后:', data)
+          setGiteeReleases(data)
+          setGiteeError('')
+        } else {
+          console.log('[OTA] Gitee 返回空数组或非数组:', giteeData)
+          setGiteeError('Gitee 暂无版本')
+        }
+      } catch (e) {
+        console.log('[OTA] Gitee 获取失败:', e.message)
+        setGiteeError('Gitee API 访问失败（可能被浏览器限制）')
+      }
+      
+      // 获取 GitHub 版本
+      try {
+        console.log('[OTA] 尝试从 GitHub 获取版本列表...')
+        const githubUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases`
+        console.log('[OTA] GitHub URL:', githubUrl)
+        const githubRes = await fetch(githubUrl)
+        console.log('[OTA] GitHub 状态:', githubRes.status)
+        const githubData = await githubRes.json()
+        console.log('[OTA] GitHub 响应:', githubData)
+        
+        if (Array.isArray(githubData) && githubData.length > 0) {
+          const data = githubData.map(r => ({
+            version: r.tag_name.replace('v', ''),
+            name: r.name || r.tag_name,
+            body: r.body || '',
+            assets: r.assets || [],
+            source: 'github'
+          })).sort((a, b) => {
+            const vA = a.version.split('.').map(Number)
+            const vB = b.version.split('.').map(Number)
+            for (let i = 0; i < Math.max(vA.length, vB.length); i++) {
+              if ((vA[i] || 0) !== (vB[i] || 0)) return (vB[i] || 0) - (vA[i] || 0)
+            }
+            return 0
+          })
+          console.log('[OTA] GitHub 解析后:', data)
+          setGithubReleases(data)
+        }
+      } catch (e) {
+        console.log('[OTA] GitHub 获取失败:', e.message)
+      }
+    }
+    fetchReleases()
   }, [])
+
+  // 当下载源切换时，更新显示的版本列表
+  useEffect(() => {
+    const currentReleases = downloadSource === 'gitee' ? giteeReleases : githubReleases
+    const otherReleases = downloadSource === 'gitee' ? githubReleases : giteeReleases
+    
+    // 优先使用当前源，如果为空则使用另一个源
+    let releasesToShow = currentReleases.length > 0 ? currentReleases : otherReleases
+    
+    // 如果当前源为空但另一个源有数据，自动切换
+    if (currentReleases.length === 0 && otherReleases.length > 0) {
+      setDownloadSource(downloadSource === 'gitee' ? 'github' : 'gitee')
+      return
+    }
+    
+    if (releasesToShow.length > 0) {
+      setReleases(releasesToShow)
+      setLatestVersion(releasesToShow[0].version)
+      if (!selectedVersion || !releasesToShow.find(r => r.version === selectedVersion)) {
+        setSelectedVersion(releasesToShow[0].version)
+        setReleaseNotes(releasesToShow[0].body)
+      }
+    } else {
+      setReleases([{ version: '1.0.1', name: 'v1.0.1', body: '请检查网络连接', assets: [], source: downloadSource }])
+      setLatestVersion('1.0.1')
+      setSelectedVersion('1.0.1')
+    }
+  }, [downloadSource, giteeReleases, githubReleases])
 
   useEffect(() => {
     if (otaStatus) {
@@ -200,11 +288,19 @@ function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publi
     setUpdating(true)
     setUpdateMessage('正在发送更新指令...')
     
-    const firmwareUrl = 'https://github.com/' + GITHUB_REPO + '/releases/download/v' + selectedVersion + '/mqtt_feeder_v' + selectedVersion + '.bin'
+    let primaryUrl, backupUrl
+    if (downloadSource === 'gitee') {
+      primaryUrl = `https://gitee.com/${GITEE_REPO}/releases/download/v${selectedVersion}/mqtt_feeder_v${selectedVersion}.bin`
+      backupUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${selectedVersion}/mqtt_feeder_v${selectedVersion}.bin`
+    } else {
+      primaryUrl = `https://github.com/${GITHUB_REPO}/releases/download/v${selectedVersion}/mqtt_feeder_v${selectedVersion}.bin`
+      backupUrl = `https://gitee.com/${GITEE_REPO}/releases/download/v${selectedVersion}/mqtt_feeder_v${selectedVersion}.bin`
+    }
     
     publish('pet/feeder/control', JSON.stringify({
       action: 'ota',
-      url: firmwareUrl,
+      url: primaryUrl,
+      backup_url: backupUrl,
       target_mac: device.device_mac
     }))
   }
@@ -488,6 +584,28 @@ function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publi
                   <span className="update-version-label">最新版本：</span>
                   <span className="update-version-value update-version-latest">v{latestVersion}</span>
                 </div>
+                <div className="update-source-select">
+                  <span className="update-version-label">下载源：</span>
+                  <div className="source-buttons">
+                    <button 
+                      className={`source-btn ${downloadSource === 'gitee' ? 'source-btn-active' : ''} ${giteeReleases.length === 0 ? 'source-btn-disabled' : ''}`}
+                      onClick={() => giteeReleases.length > 0 && setDownloadSource('gitee')}
+                      disabled={giteeReleases.length === 0}
+                      title={giteeError || ''}
+                    >
+                      🇨🇳 Gitee {giteeReleases.length === 0 ? '(不可用)' : '(推荐)'}
+                    </button>
+                    <button 
+                      className={`source-btn ${downloadSource === 'github' ? 'source-btn-active' : ''}`}
+                      onClick={() => setDownloadSource('github')}
+                    >
+                      🌍 GitHub
+                    </button>
+                  </div>
+                  {giteeError && downloadSource === 'gitee' && (
+                    <div className="source-error-hint">{giteeError}</div>
+                  )}
+                </div>
               </div>
 
               <div className="update-release-list">
@@ -518,7 +636,10 @@ function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publi
               </div>
 
               <a 
-                href={`https://github.com/${GITHUB_REPO}/releases`} 
+                href={downloadSource === 'gitee' 
+                  ? `https://gitee.com/${GITEE_REPO}/releases` 
+                  : `https://github.com/${GITHUB_REPO}/releases`
+                } 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="update-view-all-link"
@@ -1243,6 +1364,53 @@ function Profile({ user, device, logs, schedules, onLogout, onDeviceAdded, publi
 
         .update-version-latest {
           color: #38a169;
+        }
+
+        .update-source-select {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding-top: 12px;
+          border-top: 1px solid #e2e8f0;
+        }
+
+        .source-buttons {
+          display: flex;
+          gap: 8px;
+        }
+
+        .source-btn {
+          flex: 1;
+          padding: 10px 12px;
+          border: 2px solid #e2e8f0;
+          background: white;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #4a5568;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .source-btn:hover {
+          border-color: #667eea;
+        }
+
+        .source-btn-active {
+          border-color: #667eea;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+        }
+
+        .source-btn-disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .source-error-hint {
+          font-size: 12px;
+          color: #e53e3e;
+          margin-top: 4px;
         }
 
         .update-release-list {

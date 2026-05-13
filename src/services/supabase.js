@@ -36,6 +36,43 @@ export const authService = {
 
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  },
+
+  async resetPassword(email) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password'
+    })
+    if (error) throw error
+    return data
+  },
+
+  async updatePassword(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+    if (error) throw error
+    return data
+  },
+
+  async sendOtp(email) {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false
+      }
+    })
+    if (error) throw error
+    return data
+  },
+
+  async verifyOtp(email, token) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email'
+    })
+    if (error) throw error
+    return data
   }
 }
 
